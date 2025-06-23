@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: gitlab-genai-chatbot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run chatApp.py --server.port $PORT --server.enableCORS false
+    envVars:
+      - key: GOOGLE_API_KEY
+        value: your_api_key_here
