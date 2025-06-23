@@ -24,6 +24,8 @@ data/faiss_index/
 *.faiss
 *.faiss.old
 *.pkl
+data/faiss_index/
+.streamlit/secrets.toml
 
 # ─────────────────────────────
 # Jupyter checkpoints

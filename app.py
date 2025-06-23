@@ -3,11 +3,10 @@ import streamlit as st
 # ✅ FIRST Streamlit call
 st.set_page_config("GitLab GenAI Chatbot", page_icon="🤖", layout="wide")
 
-# Other imports
+# Then all other imports and logic
 from langchain_community.vectorstores import FAISS
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_core.documents import Document
 from langchain.memory import ConversationSummaryBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -26,25 +25,21 @@ else:
 # ------------------------------
 # 🧠 Load FAISS Vector DB & Embeddings
 # ------------------------------
-@st.cache_resource(show_spinner="Building vector DB...")
+@st.cache_resource(show_spinner="Loading vector DB...")
 def load_vector_store():
     embedding = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    vectordb = FAISS.load_local(
+        "data/faiss_index",
+        embedding,
+        allow_dangerous_deserialization=True
+    )
 
-    # Load raw text (from the Handbook or Direction file)
-    with open("data/handbook_cleaned_FULL.txt", "r", encoding="utf-8") as f:
-        raw_text = f.read()
+    retriever = vectordb.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": 8, "fetch_k": 18}
+    )
+    return retriever
 
-    # Split into chunks
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=60)
-    docs = [Document(page_content=chunk) for chunk in splitter.split_text(raw_text)]
-
-    # Generate FAISS vectorstore on-the-fly
-    vectordb = FAISS.from_documents(docs, embedding)
-
-    # Return retriever
-    return vectordb.as_retriever(search_type="mmr", search_kwargs={"k": 8, "fetch_k": 18})
-
-# ✅ Load retriever
 retriever = load_vector_store()
 
 # ------------------------------
@@ -63,11 +58,11 @@ memory = ConversationSummaryBufferMemory(
     llm=gemini_llm,
     memory_key="chat_history",
     return_messages=True,
-    output_key="answer"
+    output_key="answer"  # ✅ Fixes multi-output ambiguity
 )
 
 # ------------------------------
-# 📜 Custom Prompt Template
+# 📜 Custom Prompt Template (Updated Correctly)
 # ------------------------------
 prompt = PromptTemplate(
     input_variables=["context", "question"],
@@ -88,19 +83,19 @@ Question:
 """
 )
 
-# ✅ QA chain setup
+# ✅ Final chain with explicit output_key
 qa_chain = ConversationalRetrievalChain.from_llm(
     llm=gemini_llm,
     retriever=retriever,
     memory=memory,
     return_source_documents=True,
     combine_docs_chain_kwargs={"prompt": prompt},
-    output_key="answer",
+    output_key="answer",  # ✅ Also required here
     verbose=False
 )
 
 # ------------------------------
-# 🖼️ Streamlit UI
+# 🖼️ Streamlit UI Setup
 # ------------------------------
 st.title("🤖 GitLab Handbook & Direction AI Chatbot")
 st.markdown("""
@@ -137,6 +132,7 @@ if user_query:
         with st.chat_message("assistant", avatar="🤖"):
             st.markdown(response)
 
+        # Sources shown in expander
         with st.expander("📚 Sources & Reasoning", expanded=False):
             for doc in result.get("source_documents", []):
                 meta = doc.metadata
