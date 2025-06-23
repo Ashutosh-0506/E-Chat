@@ -3,12 +3,11 @@ import streamlit as st
 # ✅ FIRST Streamlit call
 st.set_page_config("GitLab GenAI Chatbot", page_icon="🤖", layout="wide")
 
-# Then all other imports and logic
+# Other imports
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_core.documents import Document
 from langchain.memory import ConversationSummaryBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -27,8 +26,6 @@ else:
 # ------------------------------
 # 🧠 Load FAISS Vector DB & Embeddings
 # ------------------------------
-
-
 @st.cache_resource(show_spinner="Building vector DB...")
 def load_vector_store():
     embedding = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -47,6 +44,8 @@ def load_vector_store():
     # Return retriever
     return vectordb.as_retriever(search_type="mmr", search_kwargs={"k": 8, "fetch_k": 18})
 
+# ✅ Load retriever
+retriever = load_vector_store()
 
 # ------------------------------
 # 🤖 Gemini 2.5 Flash Setup via LangChain
@@ -64,11 +63,11 @@ memory = ConversationSummaryBufferMemory(
     llm=gemini_llm,
     memory_key="chat_history",
     return_messages=True,
-    output_key="answer"  # ✅ Fixes multi-output ambiguity
+    output_key="answer"
 )
 
 # ------------------------------
-# 📜 Custom Prompt Template (Updated Correctly)
+# 📜 Custom Prompt Template
 # ------------------------------
 prompt = PromptTemplate(
     input_variables=["context", "question"],
@@ -89,19 +88,19 @@ Question:
 """
 )
 
-# ✅ Final chain with explicit output_key
+# ✅ QA chain setup
 qa_chain = ConversationalRetrievalChain.from_llm(
     llm=gemini_llm,
     retriever=retriever,
     memory=memory,
     return_source_documents=True,
     combine_docs_chain_kwargs={"prompt": prompt},
-    output_key="answer",  # ✅ Also required here
+    output_key="answer",
     verbose=False
 )
 
 # ------------------------------
-# 🖼️ Streamlit UI Setup
+# 🖼️ Streamlit UI
 # ------------------------------
 st.title("🤖 GitLab Handbook & Direction AI Chatbot")
 st.markdown("""
@@ -138,7 +137,6 @@ if user_query:
         with st.chat_message("assistant", avatar="🤖"):
             st.markdown(response)
 
-        # Sources shown in expander
         with st.expander("📚 Sources & Reasoning", expanded=False):
             for doc in result.get("source_documents", []):
                 meta = doc.metadata
